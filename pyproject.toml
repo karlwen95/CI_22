@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "ci-22"
+version = "0.1.0"
+description = ""
+authors = ["karlwen95 <karlwen@student.chalmers.se>"]
+readme = "README.md"
+packages = [{include = "ci_22"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+jupyter = "^1.0.0"
+numpy = "^1.23.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
