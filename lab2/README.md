@@ -2,9 +2,9 @@
 ## Set cover-problem using *genetic algorithms* (GA)
 
 ### Results for $(\mu + \lambda)$ strategy
-**Settings:**__
-POPULATION_SIZE = 50__
-OFFSPRING_SIZE = 30__
+**Settings:**  
+POPULATION_SIZE = 50  
+OFFSPRING_SIZE = 30  
 ITERS = 100
 
 | N    | weight |                                                                                                  
@@ -19,9 +19,9 @@ ITERS = 100
 
 ### Results for $(\mu , \lambda)$ strategy
 
-**Settings:**__
-POPULATION_SIZE = 50__
-OFFSPRING_SIZE = 300__
+**Settings:**  
+POPULATION_SIZE = 50  
+OFFSPRING_SIZE = 300  
 ITERS = 100
 
 | N    | weight |                                                                                                  
