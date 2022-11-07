@@ -33,3 +33,15 @@ ITERS = 100
 | 100  | 191    |  
 | 1000 | 3743   |
 | 2000 | 8275   |  
+
+
+
+## Acknowledgements
+I discussed my solution with the following students  
+Erik Bengtsson  
+Angelika Ferlin  
+Leonor Gomes  
+Mathias Schmekel  
+
+I took some inspiration of code from prof. Squillero's coding from lecture on the 27th October. 
+
