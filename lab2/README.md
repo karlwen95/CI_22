@@ -22,9 +22,9 @@ The settings are specialized in the corresponding section, respectively.
 
 
 ### Results for $(\mu + \lambda)$ strategy
-**Settings:**
-POPULATION_SIZE = 50
-OFFSPRING_SIZE = 30
+**Settings:**  
+POPULATION_SIZE = 50  
+OFFSPRING_SIZE = 30  
 ITERS = 100
 
 | N    | weight |                                                                                                  
@@ -39,9 +39,9 @@ ITERS = 100
 
 ### Results for $(\mu , \lambda)$ strategy
 
-**Settings:**
-POPULATION_SIZE = 50
-OFFSPRING_SIZE = 300
+**Settings:**  
+POPULATION_SIZE = 50  
+OFFSPRING_SIZE = 300  
 ITERS = 100
 
 | N    | weight |                                                                                                  
@@ -53,3 +53,15 @@ ITERS = 100
 | 100  | 191    |  
 | 1000 | 3743   |
 | 2000 | 8275   |  
+
+
+
+## Acknowledgements
+I discussed my solution with the following students  
+Erik Bengtsson  
+Angelika Ferlin  
+Leonor Gomes  
+Mathias Schmekel  
+
+I took some inspiration of code from prof. Squillero's coding from lecture on the 27th October. 
+
