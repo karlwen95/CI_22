@@ -1,4 +1,14 @@
-# Lab 2 
+# Lab 2
+
+### *Latest changes*
+*Additions:* 
+* *Remove duplicates in individuals when creating population.*
+* *Try to avoid to add already existing lists when mutating.*
+* *Mutation probability is dynamic.*
+
+*Also tried to include complete duplicate removal, but it was to time-consuming for N larger than 500.*
+*Rendered in some improvements for large N, but it varies between runs.*
+
 ## Set cover-problem using *genetic algorithms* (GA)
 
 To solve the set cover-problem using genetic algorithms, I use two different approaches:
@@ -19,9 +29,7 @@ The settings are specialized in the corresponding section, respectively.
 5. Choose the best individuals to constitute the new population.
 6. Repeat step 2-5 `GENERATIONS` times.
 
-
-
-### Results for $(\mu + \lambda)$ strategy
+### Results for $(\mu + \lambda)$ strategy (not updated according to latest changes)
 **Settings:**  
 POPULATION_SIZE = 50  
 OFFSPRING_SIZE = 30  
@@ -37,7 +45,7 @@ ITERS = 100
 | 1000 | 3995   |
 | 2000 | 9617   |  
 
-### Results for $(\mu , \lambda)$ strategy
+### Results for $(\mu , \lambda)$ strategy (not updated according to latest changes)
 
 **Settings:**  
 POPULATION_SIZE = 50  
