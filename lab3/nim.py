@@ -240,23 +240,25 @@ def init_population(pop_size: int, nim_size: int):
 
 # genome1 = {'rule_1': 2, 'rule_2': }
 # evaluate(make_strategy({"p": 0.9999}))
-# %% INIT POPULATION
-
-NIM_SIZE = 5
-NUM_MATCHES = 10
-POP_SIZE = 50
-OFFSPRING_SIZE = 200
-GENERATIONS = 10
-
-pop = init_population(POP_SIZE, NIM_SIZE)
-opponent_strategies = [dumb_agent, pure_random, optimal_strategy]
-
 
 # %% EVOLUTION STRATEGIES
 
+def calc_fitness(individuals: list) -> None:
+    for ind in individuals:
+        fitness = []
+        for idx, strat in enumerate(OPPONENTS):
+            wins = 0
+            for match in range(NUM_MATCHES):
+                #don't want one individual to play against itself
+                #if ind1 != ind2:
+                wins += head2head(ind, strat)
+            fitness.append(wins)
+        ind['fitness'] = tuple(fitness)
+
+
 # compute fitness by head2head-games
-def head2head(p1: dict, p2: dict):
-    players = (make_strategy(p1), make_strategy(p2))
+def head2head(ind: dict, opponent: Callable):
+    players = (make_strategy(ind), opponent)
 
     nim = Nim(NIM_SIZE)
     player = 0
@@ -266,19 +268,9 @@ def head2head(p1: dict, p2: dict):
         player = 1 - player
     winner = 1 - player
     if winner == 0:
-        p1['fitness'] += 1
-        #logging.info(f'Player {winner} won and has now fitness {p1["fitness"]}')
+        return 1
     else:
-        p2['fitness'] += 1
-        #logging.info(f'Player {winner} won and has now fitness {p2["fitness"]}')
-
-
-def calc_fitness(individuals: list) -> None:
-    for ind1 in tqdm(individuals):
-        for ind2 in individuals:
-            #don't want one individual to play against itself
-            if ind1 != ind2:
-                head2head(ind1,ind2)
+        return 0
 
 
 # get k best inds to make offspring from
@@ -286,6 +278,7 @@ def k_fittest_individuals(pop: list, k: int) -> list:
     return sorted(pop, key=lambda l: l['fitness'], reverse=True)[:k]
 
 
+# if want to reset fitness
 def clean_fitness(individuals: list) -> None:
     for ind in individuals:
         ind['fitness'] = 0
@@ -294,41 +287,28 @@ def clean_fitness(individuals: list) -> None:
 # tournament to decide parents
 def tournament(population: list, k: int) -> dict:
     contestors = random.sample(population, k=k)
-    clean_fitness(contestors)
-    #logging.debug(f'Contestors fitness {[c["fitness"] for c in contestors]} ')
-    for p1 in contestors:
-        for p2 in contestors:
-            if p1!=p2:
-                head2head(p1,p2)
     best_contestor = sorted(contestors, key=lambda l: l['fitness'], reverse=True)[0]
     return best_contestor
 
 
 def cross_over(parent1: dict, parent2: dict, mutation_prob: float) -> dict:
-    logging.info(f'Parent 1: {parent1}')
-    logging.info(f'Parent 2: {parent2}')
     rules = [rule for rule in parent1['rules'].keys()]
-    #rules = [k for k in parent1.keys() if 'rule' in k]
     child = {}
     child['rules'] = {}
     for k in rules:
         which_parent = random.randint(1, 2)
         child['rules'][k] = parent1['rules'][k] if which_parent == 1 else parent2['rules'][k]
-    logging.info(f'Child: {child}')
     if random.random() < mutation_prob:
-        logging.info(f'Mutating!')
         rule = random.choice(rules)
         r1 = parent1['rules'][rule]
         r2 = parent2['rules'][rule]
-        # get average from both parents for rule
         child['rules'][rule] = [int(d) for d in np.mean([r1, r2], axis=0).tolist()] if type(r1) == list else int(np.mean([r1, r2]))
-        logging.info(f'Child: {child}')
     return child
 
 
 def create_offspring(population: list, k: int, mutation_prob: float) -> list:
     offspring = []
-    for i in tqdm(range(OFFSPRING_SIZE)):
+    for _ in range(OFFSPRING_SIZE):
         p1 = tournament(population=population, k=k)
         p2 = tournament(population=population, k=k)
         child = cross_over(parent1=p1, parent2=p2, mutation_prob=mutation_prob)
@@ -337,11 +317,29 @@ def create_offspring(population: list, k: int, mutation_prob: float) -> list:
 
 
 def get_next_generation(offspring: list) -> list:
-    logging.debug(f'Starting with fitness 0? {True if len(offspring)==sum(o["fitness"]==0 for o in offspring) else False}')
     calc_fitness(offspring)
     return k_fittest_individuals(offspring, POP_SIZE)
 
 
+#%% COMPLETE GA/ES WHATEVER IT IS
+
+NIM_SIZE = 5
+NUM_MATCHES = 10
+POP_SIZE = 50
+OFFSPRING_SIZE = 200
+GENERATIONS = 10
+OPPONENTS = [dumb_agent, pure_random, optimal_strategy]
+
+pop = init_population(POP_SIZE, NIM_SIZE)
+
+
+tournament_size = 10
+mutation_prob = 0.3
+
+for gen in tqdm(range(GENERATIONS), desc='Generations'):
+    calc_fitness(pop)
+    offspring = create_offspring(pop, tournament_size, mutation_prob)
+    pop = get_next_generation(offspring)
 
 
 # %% A visualized match between two individuals
