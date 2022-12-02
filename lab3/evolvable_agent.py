@@ -30,6 +30,19 @@ class Evolvable_agent:
     def rules(self):
         return self._rules
 
+    @rules.setter
+    def rules(self, new_rules: dict):
+        self._rules = new_rules
+
+    @property
+    def fitness(self):
+        return self._fitness
+
+    @fitness.setter
+    def fitness(self, f: tuple):
+        # validation if wanted
+        self._fitness = f
+
     def rule1(self, data: dict):
         """ If only one row remains"""
         if max([m[1] for m in data['possible_moves']]) <= self._rules['rule_1']:
@@ -47,7 +60,7 @@ class Evolvable_agent:
             elem = 1  # exists only one elem to remove
             move = (row, elem)
         else:  # choose from row with multiple elems
-            row = [i for i in data['active_row_index'] if i not in data['single_elem_rows_index']][0]
+            row = [i for i in data['active_rows_index'] if i not in data['single_elem_rows_index']][0]
             elem = max(data['rows'][row] - self._rules['rule_2'][1], 1)
             move = row, elem
         return move
