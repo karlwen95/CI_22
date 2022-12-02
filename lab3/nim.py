@@ -18,6 +18,7 @@ from itertools import accumulate
 from operator import xor
 import numpy as np
 from tqdm import tqdm
+from evolvable_agent import Evolvable_agent
 
 # %% SET LOGGING CONFIGS
 logging.getLogger().setLevel(logging.DEBUG)
@@ -55,6 +56,7 @@ class Nim:
 # %% Extract valuable information, TODO: update to get reasonable rules to evolve in Q.2
 def cook_status(state: Nim) -> dict:
     cooked = dict()
+    cooked["rows"] = state.rows
     cooked["possible_moves"] = [
         (r, o) for r, c in enumerate(state.rows) for o in range(1, c + 1) if state.k is None or o <= state.k
     ]
@@ -62,6 +64,7 @@ def cook_status(state: Nim) -> dict:
     cooked["active_rows_index"] = [idx for idx, row in enumerate(state.rows) if row > 0]
     cooked['single_elem_row'] = any([state.rows[i] == 1 for i in cooked['active_rows_index']]) and not all(
         [state.rows[i] == 1 for i in cooked['active_rows_index']])
+    cooked['single_elem_rows_index'] = [i for i, r in enumerate(state.rows) if r == 1]
 
     cooked["shortest_row"] = min((x for x in enumerate(state.rows) if x[1] > 0), key=lambda y: y[1])[0]
     cooked["longest_row"] = max((x for x in enumerate(state.rows)), key=lambda y: y[1])[0]
@@ -95,6 +98,24 @@ def optimal_strategy(state: Nim) -> Nimply:
     data = cook_status(state)
     return next((bf for bf in data["brute_force"] if bf[1] == 0), random.choice(data["brute_force"]))[0]
 
+#%% Evaluate the nim-sum strategy
+def evaluate(strategy1: Callable, strategy2: Callable) -> float:
+    players = (strategy1, strategy2)
+    won = 0
+
+    for m in range(NUM_MATCHES):
+        nim = Nim(NIM_SIZE)
+        player = 0
+        while nim:
+            ply = players[player](nim)
+            nim.nimming(ply)
+            player = 1 - player
+        if player == 1:
+            won += 1
+    return won / NUM_MATCHES
+
+starting_wins = evaluate(optimal_strategy, optimal_strategy)
+print(f'Optimal strategy wins {starting_wins*100: .0f}% when starting and {(1-starting_wins)*100: .0f}% when not starting.')
 
 
 # %% Q.2
@@ -104,6 +125,8 @@ def optimal_strategy(state: Nim) -> Nimply:
         1. if one row --> take elems until x remains
         2. if two rows where one row has one elem --> take elems until x remains
         3. if two rows with multiple elems --> take elems until x remains
+        TODO: find rules for how to play when > 2 active rows (except random)
+        4*. agent's + oponent's move should be certain sum?
         
     Regarding rules from prof. Squillero:
         * Can evolve order
@@ -115,48 +138,29 @@ def optimal_strategy(state: Nim) -> Nimply:
 # %% Q.2 Create own strategy based on cooked information
 
 # strategy maker: play by the rules
-def make_strategy(genome: dict) -> Callable:
+def make_strategy(agent: Evolvable_agent) -> Callable:
     def evolvable(state: Nim) -> Nimply:
         data = cook_status(state)
 
-        active_rows_num = data['active_rows_number']
-        active_rows_index = data['active_rows_index']
-        poss_moves = data['possible_moves']
-
         # rule 1
-        if active_rows_num == 1:
-            #    logging.debug(f'Applying rule 1\n')
-            if max([m[1] for m in poss_moves]) <= genome['rules']['rule_1']:
-                ply = Nimply(active_rows_index[0], 1)
-            else:
-                move = [(r, e) for (r, e) in poss_moves if state.rows[r] - e == genome['rules']['rule_1']][0]
-                ply = Nimply(move[0], move[1])
+        if data['active_rows_number'] == 1:
+            row, elem = agent.rule1(data)
+            ply = Nimply(row,elem)
 
         # rule 2
-        elif active_rows_num == 2:
+        elif data['active_rows_number'] == 2:
             if data['single_elem_row']:
-                #        logging.debug(f'Applying rule 2\n')
-                if genome['rules']['rule_2'][0] == 0:  # choose from row with single elem
-                    row = [i for i, r in enumerate(state.rows) if r == 1][0]
-                    elem = 1  # exists only one elem to remove
-                    ply = Nimply(row, elem)
-                else:  # choose from row with multiple elems
-                    row = [i for i in active_rows_index if state.rows[i] != 1][0]
-                    elem = max(state.rows[row] - genome['rules']['rule_2'][1], 1)
-                    ply = Nimply(row, elem)
+                row, elem = agent.rule2(data)
+                ply = Nimply(row,elem)
 
             # rule 3
             else:
-                if genome['rules']['rule_3'][0] == 0:  # choose from row with fewest elements
-                    row = data['shortest_row']
-                else:
-                    row = data['longest_row']
-                elem = max(state.rows[row] - genome['rules']['rule_3'][1], 1)
+                row, elem = agent.rule3(data)
                 ply = Nimply(row, elem)
 
         else:
-            move = random.choice(poss_moves)
-            ply = Nimply(move[0], move[1])
+            row, elem = agent.rule4(data)
+            ply = Nimply(row, elem)
 
         return ply
 
@@ -189,11 +193,12 @@ def dumb_agent(state: Nim) -> Nimply:
     """
     data = cook_status(state)
     row = data['shortest_row']
-    return Nimply(row,1)
+    return Nimply(row, 1)
 
 
 # random strategy (to evaluate my agent)
 def pure_random(state: Nim) -> Nimply:
+    """Agent playing completely random"""
     row = random.choice([r for r, c in enumerate(state.rows) if c > 0])
     num_objects = random.randint(1, state.rows[row])
     return Nimply(row, num_objects)
@@ -236,10 +241,6 @@ def init_population(pop_size: int, nim_size: int):
         # add ind to pop
         pop.append(ind)
     return pop
-
-
-# genome1 = {'rule_1': 2, 'rule_2': }
-# evaluate(make_strategy({"p": 0.9999}))
 
 # %% EVOLUTION STRATEGIES
 
@@ -321,30 +322,43 @@ def get_next_generation(offspring: list) -> list:
     return k_fittest_individuals(offspring, POP_SIZE)
 
 
-#%% COMPLETE GA/ES WHATEVER IT IS
+#%% MAIN
+import sys
 
-NIM_SIZE = 5
-NUM_MATCHES = 10
-POP_SIZE = 50
-OFFSPRING_SIZE = 200
-GENERATIONS = 10
-OPPONENTS = [dumb_agent, pure_random, optimal_strategy]
+if '__name__' == '__main__':
+    q = sys.argv[1]
+    if q == 1:
+        # set params
+        NIM_SIZE = 5
+        NUM_MATCHES = 10
 
-pop = init_population(POP_SIZE, NIM_SIZE)
+        # play the nim-sum strategy
+        starting_wins = evaluate(optimal_strategy, optimal_strategy)
+        print(f'Optimal strategy wins {starting_wins * 100: .0f}% when starting and {(1 - starting_wins) * 100: .0f}% when not starting.')
 
+    elif q == 2:
+        # set params
+        NIM_SIZE = 5
+        NUM_MATCHES = 10
+        POP_SIZE = 50
+        OFFSPRING_SIZE = 200
+        GENERATIONS = 10
+        OPPONENTS = [dumb_agent, pure_random, optimal_strategy]
 
-tournament_size = 10
-mutation_prob = 0.3
+        pop = init_population(POP_SIZE, NIM_SIZE)
 
-for gen in tqdm(range(GENERATIONS), desc='Generations'):
-    calc_fitness(pop)
-    offspring = create_offspring(pop, tournament_size, mutation_prob)
-    pop = get_next_generation(offspring)
+    tournament_size = 10
+    mutation_prob = 0.3
+
+    for gen in tqdm(range(GENERATIONS), desc='Generations'):
+        calc_fitness(pop)
+        offspring = create_offspring(pop, tournament_size, mutation_prob)
+        pop = get_next_generation(offspring)
 
 
 # %% A visualized match between two individuals
 
-def play_game(strategy1, strategy2):
+def play_nim(strategy1, strategy2):
     strategy = (strategy1, strategy2)
     nim = Nim(NIM_SIZE)
     logging.debug(f"status: Initial board  -> {nim}")
@@ -360,7 +374,7 @@ def play_game(strategy1, strategy2):
 
 #%% PLAY
 
-play_game(make_strategy(pop[0]), my_strategy)
+#play_nim(make_strategy(pop[0]), my_strategy)
 
 
 
@@ -394,24 +408,24 @@ def evaluate(strategy1: Callable, strategy2: Callable) -> float:
     return won / NUM_MATCHES
 
 # %% PLAYING: optimal strategy vs optimal strategy
-evaluate(optimal_strategy, optimal_strategy)
+#evaluate(make_strategy(pop[0]), optimal_strategy)
 
 
 # %% A visualized match between optimal strategies
 
-strategy = (optimal_strategy, optimal_strategy)
-
-nim = Nim(4)
-logging.debug(f"status: Initial board  -> {nim}")
-player = 0
-while nim:
-    ply = strategy[player](nim)
-    nim.nimming(ply)
-    logging.debug(f"status: After player {player} -> {nim}")
-    player = 1 - player
-winner = 1 - player
-logging.info(f"status: Player {winner} won!")
+# strategy = (optimal_strategy, optimal_strategy)
+#
+# nim = Nim(4)
+# logging.debug(f"status: Initial board  -> {nim}")
+# player = 0
+# while nim:
+#     ply = strategy[player](nim)
+#     nim.nimming(ply)
+#     logging.debug(f"status: After player {player} -> {nim}")
+#     player = 1 - player
+# winner = 1 - player
+# logging.info(f"status: Player {winner} won!")
 
 
 # %% play game between two individuals
-evaluate(make_strategy(pop[5]), make_strategy(pop[1]))
+#evaluate(make_strategy(pop[5]), make_strategy(pop[1]))
