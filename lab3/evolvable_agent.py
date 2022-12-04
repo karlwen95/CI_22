@@ -4,7 +4,9 @@ Class for the evolvable agent.
 
 # %% imports
 import random
+import logging
 
+logging.getLogger().setLevel(logging.DEBUG)
 
 # %% CLASS
 
@@ -21,6 +23,11 @@ class Evolvable_agent:
         self._rules['rule_2'] = [random.randint(0, 1), random.randint(0, max_leaveInRow)]
         # setting for rule 3
         self._rules['rule_3'] = [random.randint(0, 1), random.randint(0, max_leaveInRow)]
+        # setting for rule 4
+        self._rules['rule_4'] = [random.randint(0, 1), random.randint(0, max_leaveInRow)]
+        # setting for rule 5
+        self._rules['rule_5'] = [random.randint(0, 1), random.randint(0, max_leaveInRow)]
+
         # more rules...?
 
         # init fitness
@@ -54,7 +61,7 @@ class Evolvable_agent:
         return move
 
     def rule2(self, data: dict):
-        """If two rows remain with one element in only one row"""
+        """If even rows remain with one element in only one row"""
         if self._rules['rule_2'][0] == 0:  # choose from row with single elem
             row = data['single_elem_rows_index'][0]
             elem = 1  # exists only one elem to remove
@@ -66,16 +73,36 @@ class Evolvable_agent:
         return move
 
     def rule3(self, data: dict):
-        """If two rows remain with multiple elems in both"""
-        if self.rules['rule_3'][0] == 0:  # choose from row with fewest elements
+        """If odd rows remain with one element in only one row"""
+        if self._rules['rule_3'][0] == 0:  # choose from row with single elem
+            row = data['single_elem_rows_index'][0]
+            elem = 1  # exists only one elem to remove
+            move = (row, elem)
+        else:  # choose from row with multiple elems
+            row = [i for i in data['active_rows_index'] if i not in data['single_elem_rows_index']][0]
+            elem = max(data['rows'][row] - self._rules['rule_3'][1], 1)
+            move = row, elem
+        return move
+
+    def rule4(self, data: dict):
+        """If even rows remain with multiple elems in both. Choose from either longest or shortest."""
+        if self.rules['rule_4'][0] == 0:  # choose from row with fewest elements
             row = data['shortest_row']
         else:
             row = data['longest_row']
-        elem = max(data['rows'][row] - self.rules['rule_3'][1], 1)
+        elem = max(data['rows'][row] - self.rules['rule_4'][1], 1)
         return row, elem
 
+    def rule5(self, data: dict):
+        """If odd rows remain with multiple elems in both. Choose from either longest or shortest."""
+        if self.rules['rule_5'][0] == 0:  # choose from row with fewest elements
+            row = data['shortest_row']
+        else:
+            row = data['longest_row']
+        elem = max(data['rows'][row] - self.rules['rule_5'][1], 1)
+        return row, elem
 
-    def rule4(self, data: dict):
+    def rule6(self, data: dict):
         """Play at random"""
         move = random.choice(data['possible_moves'])
         return move[0], move[1]
