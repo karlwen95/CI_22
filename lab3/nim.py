@@ -20,6 +20,8 @@ import numpy as np
 from tqdm import tqdm
 from evolvable_agent import Evolvable_agent
 
+# TODO: make semi-human smart opponent (with rule 1-3 for example)
+
 # %% SET LOGGING CONFIGS
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -62,8 +64,11 @@ def cook_status(state: Nim) -> dict:
     ]
     cooked["active_rows_number"] = sum(o > 0 for o in state.rows)
     cooked["active_rows_index"] = [idx for idx, row in enumerate(state.rows) if row > 0]
-    cooked['single_elem_row'] = any([state.rows[i] == 1 for i in cooked['active_rows_index']]) and not all(
-        [state.rows[i] == 1 for i in cooked['active_rows_index']])
+    cooked['one_single_elem_row'] = sum([state.rows[i] == 1 for i in cooked['active_rows_index']]) == 1
+    cooked['one_multiple_elem_row'] = sum([state.rows[i] > 1 for i in cooked['active_rows_index']]) == 1
+
+    # any([state.rows[i] == 1 for i in cooked['active_rows_index']]) and not all(
+    # [state.rows[i] == 1 for i in cooked['active_rows_index']])
     cooked['single_elem_rows_index'] = [i for i, r in enumerate(state.rows) if r == 1]
 
     cooked["shortest_row"] = min((x for x in enumerate(state.rows) if x[1] > 0), key=lambda y: y[1])[0]
@@ -99,19 +104,23 @@ def optimal_strategy(state: Nim) -> Nimply:
     return next((bf for bf in data["brute_force"] if bf[1] == 0), random.choice(data["brute_force"]))[0]
 
 
-
 # %% Q.2
 
 """
     Rules to evolve:
-        1. if one row --> take elems until x remains
-        2. if two rows where one row has one elem --> take elems until x remains
-        3. if two rows with multiple elems --> take elems until x remains
-        TODO: find rules for how to play when > 2 active rows (except random)
-        4*. agent's + oponent's move should be certain sum?
-        4*. Make rule for odd number of rows of single element and one row with multiple rows (optimal rule to take all but one from that rule)
-        4*. Make rule for even number of rows of single element and one row with multiple rows (optimal rule to take all but one from that rule)
+        1. if one row --> take elems until x remains (optimal: remove all)
+        2. if even rows where one row has one elem --> 
+            take elems until x remains (optimal: remove all but one from row with mutiple elems)
+        3. if odd rows where one row has one elem --> 
+            take elems until x remains (optimal: remove all from row with multiple elems)
+        4. if even rows with multiple elems --> take elems from longest or shortest row until x remains 
+            (what is optimal? try to get situations for rule 1-3?)
+        5. if odd rows with multiple elems --> take elems from longest or shortest row until x remains 
+            (what is optimal? try to get situations for rule 1-3?)
+        6. Play at random (will never get to this rule though...)
         
+        # TODO: update rules 4 and 5 to "help" agent get to a situation where rule 1-3 can be used 
+            (since these are easy to optmize)
         
     Regarding rules from prof. Squillero:
         * Can evolve order
@@ -120,6 +129,8 @@ def optimal_strategy(state: Nim) -> Nimply:
         * Impressive if algorithm beats human 
         * fitness can be winning percentage against different agents (as a tuple)
 """
+
+
 # %% Q.2 Create own strategy based on cooked information
 
 # strategy maker: play by the rules
@@ -130,22 +141,37 @@ def make_strategy(agent: Evolvable_agent) -> Callable:
         # rule 1
         if data['active_rows_number'] == 1:
             row, elem = agent.rule1(data)
-            ply = Nimply(row,elem)
+            ply = Nimply(row, elem)
 
-        # rule 2
-        elif data['active_rows_number'] == 2:
-            if data['single_elem_row']:
+        elif data['one_multiple_elem_row']:  # all rows but one have a single elem
+
+            # rule2
+            if data['active_rows_number'] % 2 == 0:  # even rows
                 row, elem = agent.rule2(data)
                 ply = Nimply(row, elem)
 
             # rule 3
-            else:
+            else:  # odd rows
                 row, elem = agent.rule3(data)
+                ply = Nimply(row, elem)
+
+        elif not data['one_multiple_elem_row']:  # multiple rows are with multiple elems (or also only ones)
+
+            # rule 4
+            if data['active_rows_number'] % 2 == 0:
+                row, elem = agent.rule4(data)
+                ply = Nimply(row, elem)
+
+            # rule 5
+            else:
+                row, elem = agent.rule5(data)
                 ply = Nimply(row, elem)
 
 
         else:
-            row, elem = agent.rule4(data)
+            # rule 6 (will we ever get here?)
+            logging.info(f'RULE 6!!! Board = {state.rows}')
+            row, elem = agent.rule6(data)
             ply = Nimply(row, elem)
 
         return ply
@@ -158,7 +184,7 @@ def my_strategy(state: Nim) -> Nimply:
     print(f'Current state: {state.rows}')
     data = cook_status(state)
     pm = data['possible_moves']
-    index = input(f'Choose a play: {[(i,m) for i,m in enumerate(pm)]}')
+    index = input(f'Choose a play: {[(i, m) for i, m in enumerate(pm)]}')
     while True:
         try:
             assert int(index) in range(len(pm))
@@ -190,7 +216,31 @@ def pure_random(state: Nim) -> Nimply:
     return Nimply(row, num_objects)
 
 
-#%% EVOLUTION STRATEGY DESCRIBED
+def semi_smart(state: Nim) -> Nimply:
+    """ Make use of rule 1-3, else random"""
+    data = cook_status(state)
+
+    if data['active_rows_number'] == 1:
+        row = data['active_rows_index'][0]
+        elems = state.rows[row]
+        ply = Nimply(row, elems)
+
+    elif data['one_multiple_elem_row']:  # all rows but one have a single elem
+        if data['active_rows_number'] % 2 == 0:
+            move = [(r, e) for (r, e) in data["possible_moves"] if state.rows[r] - e == 1][0]
+            ply = Nimply(move[0], move[1])
+        else:
+            move = [(r, e) for (r, e) in data["possible_moves"] if
+                    state.rows[r] - e == 0 and r not in data['single_elem_rows_index']][0]
+            ply = Nimply(move[0], move[1])
+    else:
+        row = random.choice([r for r, c in enumerate(state.rows) if c > 0])
+        num_objects = random.randint(1, state.rows[row])
+        ply = Nimply(row, num_objects)
+    return ply
+
+
+# %% EVOLUTION STRATEGY DESCRIBED
 
 """
 (mu, lambda)-strategy
@@ -207,11 +257,12 @@ def pure_random(state: Nim) -> Nimply:
 # %% create population with different rule-settings
 
 
-def init_population(): #pop_size: int, nim_size: int
+def init_population():  # pop_size: int, nim_size: int
     pop = []
     for i in range(POPULATION_SIZE):
         pop.append(Evolvable_agent(NIM_SIZE))
     return pop
+
 
 # %% EVOLUTION STRATEGIES
 
@@ -222,7 +273,7 @@ def calc_fitness(individuals: list) -> None:
             wins = 0
             for match in range(NUM_MATCHES):
                 wins += head2head(ind, strat)
-            fitness.append(wins/NUM_MATCHES)
+            fitness.append(wins / NUM_MATCHES)
         ind.fitness = tuple(fitness)
 
 
@@ -255,7 +306,7 @@ def tournament(population: list, k: int) -> dict:
     return best_contestor
 
 
-def cross_over(parent1: Evolvable_agent, parent2: Evolvable_agent, mutation_prob: float) -> dict:
+def cross_over(parent1: Evolvable_agent, parent2: Evolvable_agent, mutation_prob: float) -> Evolvable_agent:
     rules = [rule for rule in parent1.rules.keys()]
     new_rules = {}
     child = Evolvable_agent(NIM_SIZE)
@@ -264,9 +315,10 @@ def cross_over(parent1: Evolvable_agent, parent2: Evolvable_agent, mutation_prob
         new_rules[k] = parent1.rules[k] if which_parent == 1 else parent2.rules[k]
     if random.random() < mutation_prob:
         rule = random.choice(rules)
-        r1 = parent1.rules[rule]
-        r2 = parent2.rules[rule]
-        new_rules[rule] = [int(d) for d in np.mean([r1, r2], axis=0).tolist()] if type(r1) == list else int(np.mean([r1, r2]))
+        if rule == 'rule_1':
+            new_rules[rule] = random.randint(0, (NIM_SIZE - 1) * 2)
+        else:
+            new_rules[rule] = [random.randint(0, 1), random.randint(0, (NIM_SIZE - 1) * 2)]
     child.rules = new_rules
     return child
 
@@ -286,7 +338,7 @@ def get_next_generation(offspring: list) -> list:
     return k_fittest_individuals(offspring, POPULATION_SIZE)
 
 
-#%% PLAYING FUNCTIONS
+# %% PLAYING FUNCTIONS
 
 def evaluate(strategy1: Callable, strategy2: Callable) -> float:
     """Play two strategies against eachother and evaluate their performance """
@@ -304,6 +356,7 @@ def evaluate(strategy1: Callable, strategy2: Callable) -> float:
             won += 1
     return won / NUM_MATCHES
 
+
 def play_nim(strategy1, strategy2):
     """A visualized match between two strategies"""
     strategy = (strategy1, strategy2)
@@ -318,7 +371,8 @@ def play_nim(strategy1, strategy2):
     winner = 1 - player
     logging.info(f"status: Player {winner} won!")
 
-#%% MAIN
+
+# %% MAIN
 import argparse
 
 if __name__ == '__main__':
@@ -339,7 +393,8 @@ if __name__ == '__main__':
 
         # play the nim-sum strategy
         starting_wins = evaluate(optimal_strategy, optimal_strategy)
-        print(f'Optimal strategy wins {starting_wins * 100: .0f}% when starting and {(1 - starting_wins) * 100: .0f}% when not starting.')
+        print(
+            f'Optimal strategy wins {starting_wins * 100: .0f}% when starting and {(1 - starting_wins) * 100: .0f}% when not starting.')
 
     elif args.task == 2:
         # set params
@@ -348,7 +403,7 @@ if __name__ == '__main__':
         POPULATION_SIZE = 50
         OFFSPRING_SIZE = 200
         GENERATIONS = 10
-        OPPONENTS = [dumb_agent, pure_random, optimal_strategy]
+        OPPONENTS = [dumb_agent, pure_random, semi_smart, optimal_strategy]
 
         pop = init_population()
 
@@ -363,20 +418,12 @@ if __name__ == '__main__':
     else:
         print(f'Have not finished task {args.task}')
 
+# %% PLAY
+
+# play_nim(make_strategy(pop[0]), my_strategy)
 
 
-
-
-
-#%% PLAY
-
-#play_nim(make_strategy(pop[0]), my_strategy)
-
-
-
-
-
-#%% REGARDING POLICY AND RL
+# %% REGARDING POLICY AND RL
 
 """
     RL:
@@ -384,10 +431,4 @@ if __name__ == '__main__':
 
 """
 
-
-#%% UNUSED THINGS
-
-
-
-
-
+# %% UNUSED THINGS
