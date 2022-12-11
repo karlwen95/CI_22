@@ -372,6 +372,67 @@ def play_nim(strategy1, strategy2):
     logging.info(f"status: Player {winner} won!")
 
 
+# %% Q3 - MINMAX AGENT
+
+"""
+    Build a minmax agent that alwasy minimizes the opponents maximum win
+    Play against optimal strategy, should be able to win if start
+    Build as class or function?
+    Need:
+        keep value for each state (exhaustive)
+        condition: return 1 if win -1 else
+        condition: return 0 if not decided
+            play intil determined and traverse back to that state
+"""
+
+
+# %% MINMAX fcn
+# from minmax_agent import MinMax_agent
+
+
+def minmax(state: Nim, my_turn: bool):
+    if not state:  # empty board then I lose
+        return -1 if my_turn else 1
+
+    data = cook_status(state)
+    possible_new_states = []
+    for ply in data['possible_moves']:
+        tmp_state = deepcopy(state)
+        tmp_state.nimming(ply)
+        possible_new_states.append(tmp_state)
+    #logging.debug(f'Possible states: \n{[g.rows for g in possible_new_states]}')
+    if my_turn:
+        scores = [
+            minmax(new_state, False)
+            for new_state in possible_new_states
+        ]
+        return max(scores)
+    else:
+        # do optimal strategy to reduce complexity
+        new_state = deepcopy(state)
+        ply = optimal_strategy(new_state)
+        new_state.nimming(ply)
+        scores = [
+            minmax(new_state, True)
+            #for new_state in possible_new_states
+        ]
+        return min(scores)
+
+
+def best_move(state: Nim):
+    data = cook_status(state)
+    for ply in data['possible_moves']:
+        tmp_state = deepcopy(state)
+        tmp_state.nimming(ply)
+        score = minmax(tmp_state, my_turn=False)
+        if score > 0:
+            break
+    return ply
+
+
+
+
+
 # %% MAIN
 import argparse
 
@@ -391,10 +452,11 @@ if __name__ == '__main__':
         NIM_SIZE = 5
         NUM_MATCHES = 10
 
+        play_nim(optimal_strategy, optimal_strategy)
         # play the nim-sum strategy
-        starting_wins = evaluate(optimal_strategy, optimal_strategy)
-        print(
-            f'Optimal strategy wins {starting_wins * 100: .0f}% when starting and {(1 - starting_wins) * 100: .0f}% when not starting.')
+        #starting_wins = evaluate(optimal_strategy, optimal_strategy)
+        #print(
+        #    f'Optimal strategy wins {starting_wins * 100: .0f}% when starting and {(1 - starting_wins) * 100: .0f}% when not starting.')
 
     elif args.task == 2:
         # set params
@@ -414,6 +476,15 @@ if __name__ == '__main__':
             calc_fitness(pop)
             offspring = create_offspring(pop, tournament_size, mutation_prob)
             pop = get_next_generation(offspring)
+    elif args.task == 3:
+        import time
+        NIM_SIZE = 6
+        start = time.time()
+        play_nim(best_move, optimal_strategy)
+        elapsed = time.time()-start
+        print(f'It take {elapsed :.2f} seconds to play a game of Nim with size {NIM_SIZE}')
+        #print(best_move(Nim(3)))
+        #print(minimax(Nim(2), True))
 
     else:
         print(f'Have not finished task {args.task}')
