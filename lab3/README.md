@@ -41,8 +41,8 @@ Common evolved rules after 10 generations with `POPULATION_SIZE`=50 and `OFFSPRI
 `'rule_4': [1, 4]`  (all elements but 4 should be removed from the longest row),
 `'rule_5': [0, 4]` (all elements but 4 should be removed from the shortest row).
 
-This means that rules 1-3 are optimally evolved while the parameters for rule 4-5 are more difficult to evaluate. 
-**Note:** If $remaining elems < param$ the agent only removes one element.
+This means that rules 1-3 are optimally evolved while the parameters for rule 4-5 are more difficult to evaluate.  
+**Note:** If remaining elems $<$ param the agent only removes one element.
 
 ### Performance of evolved agent
 The agents are playing `NUM_MATCHES` against above-mentioned opponents. 
@@ -64,5 +64,9 @@ The possible moves are presented and the user enters the index (first value of e
 
 Good luck and let me know in the *issues* if you beat my agent or not.   
 
-
+### In collaboration with 
+Erik Bengtsson  
+Angelica Ferlin  
+Leonor Gomez  
+Mathias Schmekel  
 
