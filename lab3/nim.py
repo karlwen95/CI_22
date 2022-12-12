@@ -387,10 +387,9 @@ def play_nim(strategy1, strategy2):
 
 
 # %% MINMAX fcn
-# from minmax_agent import MinMax_agent
 
 
-def minmax(state: Nim, my_turn: bool):
+def minmax(state: Nim, my_turn: bool, alpha=-1, beta=1):
     if not state:  # empty board then I lose
         return -1 if my_turn else 1
 
@@ -400,23 +399,35 @@ def minmax(state: Nim, my_turn: bool):
         tmp_state = deepcopy(state)
         tmp_state.nimming(ply)
         possible_new_states.append(tmp_state)
-    #logging.debug(f'Possible states: \n{[g.rows for g in possible_new_states]}')
     if my_turn:
-        scores = [
-            minmax(new_state, False)
-            for new_state in possible_new_states
-        ]
-        return max(scores)
+        bestVal = -np.inf
+        for new_state in possible_new_states:
+            value = minmax(new_state, False, alpha, beta)
+            bestVal = max(bestVal, value)
+            alpha = max(alpha, bestVal)
+            if beta <= alpha:
+                logging.info(f'Pruned')
+                break
+        return bestVal
     else:
-        # do optimal strategy to reduce complexity
+        bestVal = np.inf
         new_state = deepcopy(state)
         ply = optimal_strategy(new_state)
         new_state.nimming(ply)
-        scores = [
-            minmax(new_state, True)
-            #for new_state in possible_new_states
-        ]
-        return min(scores)
+        value = minmax(new_state, True, alpha, beta)
+        bestVal = min(bestVal, value)
+        #alpha = min(alpha, bestVal)
+        return bestVal
+
+        # do optimal strategy to reduce complexity
+        #new_state = deepcopy(state)
+        #ply = optimal_strategy(new_state)
+        #new_state.nimming(ply)
+        #scores = [
+        #    minmax(new_state, True)
+            # for new_state in possible_new_states
+        #]
+        #return min(scores)
 
 
 def best_move(state: Nim):
@@ -428,9 +439,6 @@ def best_move(state: Nim):
         if score > 0:
             break
     return ply
-
-
-
 
 
 # %% MAIN
@@ -454,8 +462,8 @@ if __name__ == '__main__':
 
         play_nim(optimal_strategy, optimal_strategy)
         # play the nim-sum strategy
-        #starting_wins = evaluate(optimal_strategy, optimal_strategy)
-        #print(
+        # starting_wins = evaluate(optimal_strategy, optimal_strategy)
+        # print(
         #    f'Optimal strategy wins {starting_wins * 100: .0f}% when starting and {(1 - starting_wins) * 100: .0f}% when not starting.')
 
     elif args.task == 2:
@@ -478,13 +486,14 @@ if __name__ == '__main__':
             pop = get_next_generation(offspring)
     elif args.task == 3:
         import time
-        NIM_SIZE = 6
+
+        NIM_SIZE = 5
         start = time.time()
-        play_nim(best_move, optimal_strategy)
-        elapsed = time.time()-start
+        play_nim(optimal_strategy, best_move)
+        elapsed = time.time() - start
         print(f'It take {elapsed :.2f} seconds to play a game of Nim with size {NIM_SIZE}')
-        #print(best_move(Nim(3)))
-        #print(minimax(Nim(2), True))
+        # print(best_move(Nim(3)))
+        # print(minimax(Nim(2), True))
 
     else:
         print(f'Have not finished task {args.task}')
