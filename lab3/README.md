@@ -63,6 +63,7 @@ The complexity is still huge though, since a game with `size = 4` only takes a f
 
 The minmax agent performs well, as it should as it is exhaustive, winning against the optimal strategy if starting (except for `size=4`, where minmax agent wins if not starting).
 
+Inspiration for the implementation of minmax-strategy was taken from [here](https://www.geeksforgeeks.org/minimax-algorithm-in-game-theory-set-4-alpha-beta-pruning/amp/).
 ## Task 4 - Reinforcement learning
 **To be completed!**
 
