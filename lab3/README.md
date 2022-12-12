@@ -54,6 +54,18 @@ A description follows of the different strategies:
 **Semi smart**: Uses rules 1-3 with optimal parameters but else plays at random.  
 **Optimal strategy**: Plays based on nim-sum strategy.
 
+## Task 3 - Minmax strategy
+I'm using a minmax strategy with $\alpha$ and $\beta$ pruning modified for the minimizing player to play by the optimal strategy to achieve spead-up.
+Instead of going through all possible states the minimizer simply plays the optimal move according to the *Nim sum*.
+If there is no optimal move a random move is made.
+This implies a big speed-up and enables a game of Nim with `size = 5` to be played in approximately 10 minutes (without speed-up it didn't finish for multiple hours).
+The complexity is still huge though, since a game with `size = 4` only takes a few seconds to end. 
+
+The minmax agent performs well, as it should as it is exhaustive, winning against the optimal strategy if starting (except for `size=4`, where minmax agent wins if not starting).
+
+## Task 4 - Reinforcement learning
+**To be completed!**
+
 ## About running the file 
 To get the evolved agent trained, run the file with flag `-t 2` which indicates `task 2` (use `-t 1` if you want task 1, basically optimal vs optimal).
 `pop[0]` returns most fit agent.
@@ -62,7 +74,7 @@ To play against the evolved agent, use function `play_nim(make_strategy(pop[0]),
 This displays a game of nim where `my_strategy` take user input to make a move. 
 The possible moves are presented and the user enters the index (first value of each tuple). 
 
-Good luck and let me know in the *issues* if you beat my agent or not.   
+Good luck and let me know in *issues* if you beat my agent or not.   
 
 ### In collaboration with 
 Erik Bengtsson  
