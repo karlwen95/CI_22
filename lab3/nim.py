@@ -662,7 +662,7 @@ if __name__ == '__main__':
     elif args.task == 3:
         import time
         start = time.time()
-        play_nim(best_move, my_strategy)
+        play_nim(best_move, optimal_strategy)
         elapsed = time.time() - start
         print(f'It take {elapsed :.2f} seconds to play a game of Nim with size {NIM_SIZE}')
 
