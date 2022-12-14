@@ -64,16 +64,46 @@ The complexity is still huge though, since a game with `size = 4` only takes a f
 The minmax agent performs well, as it should as it is exhaustive, winning against the optimal strategy if starting (except for `size=4`, where minmax agent wins if not starting).
 
 Inspiration for the implementation of minmax-strategy was taken from [here](https://www.geeksforgeeks.org/minimax-algorithm-in-game-theory-set-4-alpha-beta-pruning/amp/).
+
 ## Task 4 - Reinforcement learning
-**To be completed!**
+The policy of the reinforcement learning (RL) agent is obtained using Monte Carlo Tree Search (MCTS) which involves four steps.
+1. *Selection* of a child node, i.e. the next board state to visit. 
+Choose child node that gives the highest value for the *Upper Confidence Trees* (UCT) formula $\fraq{w_i}{n_i}+c\sqrt{\fraq{\ln{N_i}}{n_i}$, where 
+   * $w_i$ is the number of wins starting from the child node
+   * $n_i$ is the number of visits of the child node
+   * $c$ is exploration parameter, typically $\sqrt{2}$
+   * $N_i$ is the number of visits of the parent node, i.e. the current state.
+2. *Expand* to the selected node.
+3. Evaluate node by *simulating* the game $n$ times from that state.
+4. *Backpropagate* the results and update statistics of number of visits (simulations) and reward (wins).
+
+The formula used in (1) accounts for both exploitation (first term, since it is high for nodes with many wins), and exploration (second term, since it is high for nodes with few visits).
+In addition to this, a random state can be visited with a small probability to emphasise exploration.
+
+The agent is for 1000 iterations, simulating 100 games against different opponents from each node it visits.
+During evaluation, the RL-agent makes a `ply` according to the one yielding a move to the node with the highest *UCT*-score.
+
+
+
+
+
 
 ## About running the file 
-To get the evolved agent trained, run the file with flag `-t 2` which indicates `task 2` (use `-t 1` if you want task 1, basically optimal vs optimal).
-`pop[0]` returns most fit agent.
-The attributes `fitness` and `rules` retrieves the obvious.  
-To play against the evolved agent, use function `play_nim(make_strategy(pop[0]),my_strategy)`.  
+To execute the program for the wanted task, run the file with flag `-t x`, where `x = 1, 2, 3` or `4`.  
+Set the wanted `nim_size` but bare in mind the time consumption due to complexity. Default value is `nim_size=3`.
+
+**Task 1:** use `-t 1` if you want task 1, basically optimal vs optimal.  
+
+**Task 2:** run the file with flag `-t 2`. `pop[0]` returns most fit agent.
+To play against the evolved agent, use function `play_nim(make_strategy(pop[0]),my_strategy)`.
 This displays a game of nim where `my_strategy` take user input to make a move. 
 The possible moves are presented and the user enters the index (first value of each tuple). 
+
+**Task 3:** run with `-t 3` for a displayed game between a *minmax*-agent playing against an optimal strategy.  
+
+**Task 4:** run with `-t 4` to train and play the RL-agent against `pure_random`, `semi_smart` and `optimal_strategy`. 
+If you want to try to play against RL-agent, simply write `play_nim(rl_agent.policy, my_strategy)`. 
+Remember that first argument is strategy that starts.
 
 Good luck and let me know in *issues* if you beat my agent or not.   
 
