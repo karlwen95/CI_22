@@ -80,11 +80,12 @@ Choose child node that gives the highest value for the *Upper Confidence Trees* 
 The formula used in (1) accounts for both exploitation (first term, since it is high for nodes with many wins), and exploration (second term, since it is high for nodes with few visits).
 In addition to this, a random state can be visited with a small probability to emphasise exploration.
 
-The agent is for 1000 iterations, simulating 100 games against different opponents from each node it visits.
+The agent is trained for 1000 iterations, simulating 100 games against different opponents from each node it visits.
 During evaluation, the RL-agent makes a `ply` according to the one yielding a move to the node with the highest *UCT*-score.
 
-
-
+The performance of the agent is dependent to which opponent is faced during training. 
+For a nim-board of size 3, trained against the optimal strategy, the RL-agent never loses during evaluation. 
+However, if it is only trained against a pure random strategy, it wins approximately 90% of the games against the random agent and 0% against the optimal one. 
 
 
 
@@ -107,9 +108,7 @@ Remember that first argument is strategy that starts.
 
 Good luck and let me know in *issues* if you beat my agent or not.   
 
-### In collaboration with 
-Erik Bengtsson  
-Angelica Ferlin  
-Leonor Gomez  
-Mathias Schmekel  
+### Acknowledgements
+Discussions have been made with **Erik Bengtsson**, **Angelica Ferlin**, **Leonor Gomez** and **Mathias Schmekel**.
+
 
