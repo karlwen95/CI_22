@@ -7,7 +7,7 @@ Agents based on different strategies playing Nim (description here: https://en.w
 
 @Author: Karl Wennerström in collaboration with Erik Bengtsson (s306792)
 """
-import argparse
+
 # %% IMPORTS
 import logging
 from collections import namedtuple
@@ -55,7 +55,7 @@ class Nim:
         self._rows[row] -= num_objects
 
 
-# %% Extract valuable information, TODO: update to get reasonable rules to evolve in Q.2
+# %% Extract valuable information
 def cook_status(state: Nim) -> dict:
     cooked = dict()
     cooked["rows"] = state.rows
@@ -254,19 +254,17 @@ def semi_smart(state: Nim) -> Nimply:
 """
 
 
-# %% create population with different rule-settings
-
-
-def init_population():  # pop_size: int, nim_size: int
+# %% Evolution strategy-functions
+def init_population():
+    """Initialize population"""
     pop = []
     for i in range(POPULATION_SIZE):
         pop.append(Evolvable_agent(NIM_SIZE))
     return pop
 
 
-# %% EVOLUTION STRATEGIES
-
 def calc_fitness(individuals: list) -> None:
+    """Calculate fitness for each individual as a proportion of won games against different opponents"""
     for ind in individuals:
         fitness = []
         for idx, strat in enumerate(OPPONENTS):
@@ -279,6 +277,7 @@ def calc_fitness(individuals: list) -> None:
 
 # compute fitness by head2head-games
 def head2head(agent: Evolvable_agent, opponent: Callable):
+    """One game between evolvable agent and opponent"""
     players = (make_strategy(agent), opponent)
 
     nim = Nim(NIM_SIZE)
@@ -294,19 +293,21 @@ def head2head(agent: Evolvable_agent, opponent: Callable):
         return 0
 
 
-# get k best inds to make offspring from
-def k_fittest_individuals(pop: list, k: int) -> list:
-    return sorted(pop, key=lambda l: l.fitness, reverse=True)[:k]
+def fittest_individuals(pop: list) -> list:
+    """Return the most fit individuals to use in offspring generation"""
+    return sorted(pop, key=lambda l: l.fitness, reverse=True)[:POPULATION_SIZE]
 
 
 # tournament to decide parents
 def tournament(population: list, k: int) -> dict:
+    """Select best individual out of k competing in a tournament"""
     contestors = random.sample(population, k=k)
     best_contestor = sorted(contestors, key=lambda l: l.fitness, reverse=True)[0]
     return best_contestor
 
 
 def cross_over(parent1: Evolvable_agent, parent2: Evolvable_agent, mutation_prob: float) -> Evolvable_agent:
+    """Generate new individual by cross-over of parents' rules"""
     rules = [rule for rule in parent1.rules.keys()]
     new_rules = {}
     child = Evolvable_agent(NIM_SIZE)
@@ -324,6 +325,7 @@ def cross_over(parent1: Evolvable_agent, parent2: Evolvable_agent, mutation_prob
 
 
 def create_offspring(population: list, k: int, mutation_prob: float) -> list:
+    """Create new offspring"""
     offspring = []
     for _ in range(OFFSPRING_SIZE):
         p1 = tournament(population=population, k=k)
@@ -334,18 +336,18 @@ def create_offspring(population: list, k: int, mutation_prob: float) -> list:
 
 
 def get_next_generation(offspring: list) -> list:
+    """Find the best individuals in the new generation"""
     calc_fitness(offspring)
-    return k_fittest_individuals(offspring, POPULATION_SIZE)
+    return fittest_individuals(offspring)
 
 
 # %% PLAYING FUNCTIONS
-
 def evaluate(strategy1: Callable, strategy2: Callable) -> float:
-    """Play two strategies against eachother and evaluate their performance """
+    """Play two strategies against each other and evaluate their performance """
     players = (strategy1, strategy2)
     won = 0
 
-    for m in range(NUM_MATCHES):
+    for m in range(EVAL_MATCHES):
         nim = Nim(NIM_SIZE)
         player = 0
         while nim:
@@ -354,7 +356,8 @@ def evaluate(strategy1: Callable, strategy2: Callable) -> float:
             player = 1 - player
         if player == 1:
             won += 1
-    return won / NUM_MATCHES
+    print(f'{strategy1.__name__} wins {won*100/EVAL_MATCHES} % of the games against {strategy2.__name__}')
+    return won / EVAL_MATCHES
 
 
 def play_nim(strategy1, strategy2):
@@ -416,18 +419,7 @@ def minmax(state: Nim, my_turn: bool, alpha=-1, beta=1):
         new_state.nimming(ply)
         value = minmax(new_state, True, alpha, beta)
         bestVal = min(bestVal, value)
-        #alpha = min(alpha, bestVal)
         return bestVal
-
-        # do optimal strategy to reduce complexity
-        #new_state = deepcopy(state)
-        #ply = optimal_strategy(new_state)
-        #new_state.nimming(ply)
-        #scores = [
-        #    minmax(new_state, True)
-            # for new_state in possible_new_states
-        #]
-        #return min(scores)
 
 
 def best_move(state: Nim):
@@ -441,74 +433,255 @@ def best_move(state: Nim):
     return ply
 
 
+# %% Q4 - RL
+
+"""
+Reinforcement learning agent to play Nim
+
+Idea:
+    Play using Upper Confidence Trees (UCT), a Monte Carlo Tree Search (MCTS) algorithm, popular when trade-off between
+    finding best-so-far and finding a better one
+
+Need:
+    * All possible states (TODO: sort state so that e.g. 1 1 0 == 1 0 1)
+        * Init with value 0 and visits 0
+    * Actions for each state (based on data)
+    * Simulate function
+    * Reward function
+
+Outline:
+    1. Selection (select an unvisited node) with highest UCT
+    2. Expand to that node
+    3. Simulate from that node until termination
+    4. Backpropagate and update node with statistics
+        * N(v) - number of visits for node v
+        * Q(v) - value/reward playing from that node
+
+UCT:
+    uct(v_i, v) = Q(v_i)/N(v_i) + c*sqrt(log(N(v))/N(v_i)), which prefers child nodes with small N(v_i)
+    choose action according to highest uct value (init with np.inf to explore every move)
+"""
+
+# Imports
+import itertools
+
+
+# Class
+
+class RLAgent:
+
+    # INITIALIZATION -----------------------------------------------------------------
+    def __init__(self, nim_size: int, random_factor=0.2,
+                 exploration_factor=np.sqrt(2)):  # explore with 20%, exploit with 80%
+        self.nim_size = nim_size
+        self.current_state = None
+        self.previous_state = None
+        self.__init_states(nim_size)
+        self.random_factor = random_factor
+        self.c = exploration_factor
+
+    def __init_states(self, nim_size: int):
+        """find all possible board positions"""
+        states = {}
+        rows = [i * 2 + 1 for i in range(nim_size)]
+        elem_ranges = list(itertools.combinations([range(n + 1) for n in rows], r=nim_size))
+        all_states = list(itertools.product(*elem_ranges[0]))
+
+        for state in all_states:
+            states[state] = {}
+            states[state]['visits'] = 0
+            states[state]['value'] = 0
+            states[state]['child_states'] = self.__init_child_states(state)
+        self.states = states
+        # last state is the initial board
+        self.current_state = all_states[-1]
+        self.states[self.current_state]['visits'] = 1
+
+    def __init_child_states(self, state):
+        """Find all states accessible from state"""
+        nim = Nim(self.nim_size)
+        nim._rows = list(state)
+        if nim:
+            data = cook_status(nim)
+            children = []
+            for ply in data['possible_moves']:
+                tmp_nim = deepcopy(nim)
+                tmp_nim.nimming(ply)
+                children.append(tmp_nim.rows)
+            return children
+
+    # MCTS -----------------------------------------------------------------
+    def selection(self):
+        """Select next move according to highest uct score"""
+        next_state = self.__state_with_highest_uct()
+        return next_state
+
+    def __state_with_highest_uct(self):
+        """Move to child node with highest UCT score (depending on parent and child nodes) """
+        visits_parent = self.states[self.current_state]['visits']
+        best_state = None
+        best_uct = -np.inf
+        for child_state in self.states[self.current_state]['child_states']:
+            visits_child = self.states[child_state]['visits']
+            wins_child = self.states[child_state]['value']
+            uct = wins_child / (visits_child + 1) + self.c * (np.log(visits_parent) / (visits_child + 1)) ** (1 / 2)
+            if uct > best_uct:
+                best_uct = uct
+                best_state = child_state
+        return best_state
+
+    def random_selection(self):
+        """Explore and move to random state"""
+        next_state = random.choice(tuple(self.states[self.current_state]['child_states']))
+        return next_state
+
+    def expand(self, next_state):
+        """Expand to the found next state. Return the ply that takes agent there"""
+        self.previous_state = self.current_state
+        self.current_state = next_state
+        ply = self.__next_ply()
+        return ply
+
+    def __next_ply(self):
+        """ Find ply that takes agent from previous state to current state"""
+        # manipulate nim
+        nim = Nim(self.nim_size)
+        nim._rows = list(self.previous_state)
+        data = cook_status(nim)
+        ply = [ply for ply in data['possible_moves'] if data['rows'][ply[0]] - ply[1] == self.current_state[ply[0]]][0]
+        return ply
+
+    def simulate(self, opponent: Callable, n_matches: int):
+        """Simulate game of nim vs opponent by letting RL agent play randomly from current state"""
+        players = (opponent, pure_random)  # rl agent is second since played move to get here
+        nim = Nim(self.nim_size)
+        won = 0
+        for match in range(n_matches):
+            # forbidden stuff
+            nim._rows = list(self.current_state)  # play from current state
+
+            player = 0
+            while nim:
+                ply = players[player](nim)
+                nim.nimming(ply)
+                player = 1 - player
+            if player == 0:
+                won += 1
+
+        # update results
+        self.backpropagate(n_matches, won)
+
+    def backpropagate(self, visits: int, reward: int):
+        """Update results after simulating `visits` times game from current state"""
+        self.states[self.current_state]['visits'] += visits
+        self.states[self.current_state]['value'] += reward
+
+    # TRAINING -----------------------------------------------------------------
+    def learn_to_play(self, opponents: list, n_sims: int, n_matches: int):
+        """Simulate the game from original state. For each move, simulate the outcome n_matches times.
+        Keep moving until board is empty, then repeat n_sims times."""
+        for opponent in opponents:
+            for n in tqdm(range(n_sims), desc="Iterations, %s" %opponent.__name__):
+                # always start from initial state in a new simulation
+                nim = Nim(self.nim_size)
+                self.current_state = nim.rows
+
+                while nim:
+                    if random.random() < self.random_factor:
+                        # choose random state
+                        ns = self.random_selection()
+                    else:
+                        ns = self.selection()
+                    ply = self.expand(next_state=ns)
+                    nim.nimming(ply)
+
+                    self.simulate(opponent, n_matches)
+
+    def get_statistics(self):
+        """Print overview of number of visits and wins for a visited state"""
+        info = [(k, v['value'], v['visits']) for k, v in self.states.items()]
+        for state in info:
+            if state[2] > 0:  # at least 1 visit
+                print(f'State {state[0]}: \tvisits {state[2]} \twins {state[1]}')
+
+    def policy(self, state: Nim) -> Nimply:
+        """The policy, i.e. the next move for the current state"""
+        self.current_state = state.rows
+        ns = self.selection()
+        ply = self.expand(next_state=ns)
+        return ply
+
+
+
+
+
 # %% MAIN
 import argparse
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
 
-    # -t TASK
+    # VARIABLES
+    NIM_SIZE = 3
+    NUM_MATCHES = 100
+    EVAL_MATCHES = 100
+
+    # INPUT
+    parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--task", dest="task", default=1,
                         help="Which task should run? Choose from 1, 2, 3 or 4.", type=int)
 
     args = parser.parse_args()
-
     print(f"Task: {args.task}")
 
+    # ---------------------------TASK 1 - PLAYING THE OPTIMAL STRATEGY ---------------------------
     if args.task == 1:
-        # set params
-        NIM_SIZE = 5
-        NUM_MATCHES = 10
-
         play_nim(optimal_strategy, optimal_strategy)
         # play the nim-sum strategy
-        # starting_wins = evaluate(optimal_strategy, optimal_strategy)
-        # print(
-        #    f'Optimal strategy wins {starting_wins * 100: .0f}% when starting and {(1 - starting_wins) * 100: .0f}% when not starting.')
+        starting_wins = evaluate(optimal_strategy, optimal_strategy)
+        print(f'Optimal strategy wins {starting_wins * 100: .0f}% when starting and {(1 - starting_wins) * 100: .0f}% when not starting.')
 
+    # ---------------------------TASK 2 - EVOLVE AN AGENT ---------------------------
     elif args.task == 2:
         # set params
-        NIM_SIZE = 5
-        NUM_MATCHES = 10
         POPULATION_SIZE = 50
         OFFSPRING_SIZE = 200
         GENERATIONS = 10
         OPPONENTS = [dumb_agent, pure_random, semi_smart, optimal_strategy]
 
-        pop = init_population()
-
         tournament_size = 10
         mutation_prob = 0.3
+
+        pop = init_population()
 
         for gen in tqdm(range(GENERATIONS), desc='Generations'):
             calc_fitness(pop)
             offspring = create_offspring(pop, tournament_size, mutation_prob)
             pop = get_next_generation(offspring)
+
+    # --------------------------- TASK 3 - MINMAX FUNCTION ---------------------------
     elif args.task == 3:
         import time
-
-        NIM_SIZE = 5
         start = time.time()
-        play_nim(optimal_strategy, best_move)
+        play_nim(best_move, my_strategy)
         elapsed = time.time() - start
         print(f'It take {elapsed :.2f} seconds to play a game of Nim with size {NIM_SIZE}')
-        # print(best_move(Nim(3)))
-        # print(minimax(Nim(2), True))
+
+    # --------------------------- TASK 4 - REINFORCEMENT LEARNING ---------------------------
+    elif args.task == 4:
+        ITERS = 1000
+
+        # must have run with -t 2 to have a pop
+        if 'pop' in locals():
+            opponents = [pure_random, semi_smart, make_strategy(pop[0]), optimal_strategy]
+        else:
+            opponents = [pure_random, semi_smart, optimal_strategy]
+
+        for opponent in opponents:
+            rl_agent = RLAgent(NIM_SIZE)
+            rl_agent.learn_to_play([opponent], n_sims=ITERS, n_matches=NUM_MATCHES)
+            evaluate(rl_agent.policy, opponent)
+
 
     else:
         print(f'Have not finished task {args.task}')
 
-# %% PLAY
-
-# play_nim(make_strategy(pop[0]), my_strategy)
-
-
-# %% REGARDING POLICY AND RL
-
-"""
-    RL:
-        * reward not certain to be instant
-
-"""
-
-# %% UNUSED THINGS
