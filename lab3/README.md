@@ -68,7 +68,7 @@ Inspiration for the implementation of minmax-strategy was taken from [here](http
 ## Task 4 - Reinforcement learning
 The policy of the reinforcement learning (RL) agent is obtained using Monte Carlo Tree Search (MCTS) which involves four steps.
 1. *Selection* of a child node, i.e. the next board state to visit. 
-Choose child node that gives the highest value for the *Upper Confidence Trees* (UCT) formula $\fraq{w_i}{n_i}+c\sqrt{\fraq{\ln{N_i}}{n_i}}$, where 
+Choose child node that gives the highest value for the *Upper Confidence Trees* (UCT) formula $\frac{w_i}{n_i}+c\sqrt{\frac{\ln{N_i}}{n_i}}$, where 
    * $w_i$ is the number of wins starting from the child node
    * $n_i$ is the number of visits of the child node
    * $c$ is exploration parameter, typically $\sqrt{2}$
